@@ -1,5 +1,9 @@
 # dsh-agent-session-import
 
+This is a personal fork of [howtomakeaname/dsh-agent-session-import](https://github.com/howtomakeaname/dsh-agent-session-import), maintained by Very12345 under the original MIT license. It retains the upstream package name and must replace, rather than be enabled alongside, the upstream installation. The npm package is the upstream version.
+
+The fork improves Codex project grouping, renamed titles, archived transcripts, missing local transcript reporting, workspace registration and readable tool calls. Reimporting creates a new DSH session and preserves the previous import.
+
 [English](README.en.md) | [简体中文](README.md)
 
 [![npm version](https://img.shields.io/npm/v/dsh-agent-session-import.svg)](https://www.npmjs.com/package/dsh-agent-session-import)
@@ -63,7 +67,7 @@ To uninstall: **Plugins → the plugin → Uninstall**. Uninstalling does not de
 - Search, `Unimported / All` scope switching, group-level select-all, **Select unimported**, and per-row selection. The import dialog shows total progress, the current item, per-item results, and retry for failed items.
 - Two import modes (both preserve content; they differ in how the history is represented and sent):
   - **Faithful**: thinking blocks, tool calls, and tool results remain structured cards, which is best for reading. Continuing the session may be constrained by model API validation of historical `tool_use` / `thinking` wire events.
-  - **Resume-safe**: the same content is kept as text (`【思考】` / `[工具调用]` / `[工具结果]`), with tool/thinking wire structures removed, so any model can safely continue the conversation.
+  - **Resume-safe**: Flatten visible reasoning summaries and tool calls/results to plain text; long content may be truncated.
 - One source conversation becomes one DSH session, restoring the original project directory when possible (falling back to the user's home directory when it no longer exists).
 - Session titles and message counts are written into the DSH projection cache, so imported sessions are visible in the sidebar immediately.
 - Imported records are stored in `$DSH_HOME/session-import/imported.json`; re-importing shows a badge, and the list refreshes after an import finishes.

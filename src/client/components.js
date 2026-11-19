@@ -27,14 +27,14 @@ const h = react.createElement;
       ].filter((part) => part !== null && part !== '');
       return h(
         'div',
-        { className: 'ci-row' + (nested ? ' child' : ''), onClick: () => onToggle(rowKey), role: 'checkbox', 'aria-checked': checked, tabIndex: 0,
+        { className: 'ci-row' + (nested ? ' child' : ''), onClick: () => { if (!item.unavailable) onToggle(rowKey); }, role: 'checkbox', 'aria-checked': checked, 'aria-disabled': !!item.unavailable, title: item.unavailable ? t('rolloutUnavailableHint') : undefined, tabIndex: item.unavailable ? -1 : 0,
           onKeyDown: (event) => {
-            if (event.key === ' ' || event.key === 'Enter') {
+            if (!item.unavailable && (event.key === ' ' || event.key === 'Enter')) {
               event.preventDefault();
               onToggle(rowKey);
             }
           } },
-        h(P.Checkbox, { checked, onChange: () => onToggle(rowKey) }),
+        h(P.Checkbox, { checked, disabled: !!item.unavailable, onChange: () => { if (!item.unavailable) onToggle(rowKey); } }),
         h(
           'div',
           { className: 'ci-row-main' },
@@ -45,6 +45,7 @@ const h = react.createElement;
           'div',
           { className: 'ci-badges' },
           item.isArchived ? h(Badge, { tone: 'warn' }, t('archived')) : null,
+          item.unavailable ? h(Badge, { tone: 'warn' }, t('rolloutUnavailable')) : null,
           item.importedSessionId ? h(Badge, { tone: 'ok' }, t('imported')) : null,
         ),
       );

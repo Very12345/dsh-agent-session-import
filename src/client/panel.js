@@ -141,6 +141,8 @@ const h = react.createElement;
           if (scope === 'unimported' && item.importedSessionId) return false;
           if (needle === '') return true;
           return String(item.title).toLowerCase().includes(needle)
+            || String(item.projectName ?? '').toLowerCase().includes(needle)
+            || String(item.projectRoot ?? '').toLowerCase().includes(needle)
             || String(item.cwdLabel ?? '').toLowerCase().includes(needle)
             || String(item.cwd ?? '').toLowerCase().includes(needle);
         });
@@ -150,13 +152,13 @@ const h = react.createElement;
       const groups = react.useMemo(() => {
         const map = new Map();
         for (const item of filtered) {
-          const groupKey = typeof item.cwd === 'string' && item.cwd !== '' ? item.cwd : '__unknown__';
+          const groupKey = item.projectId ? 'project:' + item.projectId : typeof item.cwd === 'string' && item.cwd !== '' ? item.cwd : '__unknown__';
           let group = map.get(groupKey);
           if (group === undefined) {
             group = {
               key: groupKey,
-              cwd: typeof item.cwd === 'string' && item.cwd !== '' ? item.cwd : null,
-              label: item.cwdLabel || t('unknownProject'),
+              cwd: item.projectRoot || (typeof item.cwd === 'string' && item.cwd !== '' ? item.cwd : null),
+              label: item.projectName || item.cwdLabel || t('unknownProject'),
               items: [],
               latest: 0,
               imported: 0,
@@ -188,7 +190,7 @@ const h = react.createElement;
         setExpandedGroups(new Set());
       }, []);
       /** Unimported rows of one project group (group checkbox target). */
-      const groupUnimported = (group) => group.items.filter((item) => !item.importedSessionId);
+      const groupUnimported = (group) => group.items.filter((item) => !item.unavailable && (scope === 'all' || !item.importedSessionId));
       const groupAllSelected = (group) => {
         const rows = groupUnimported(group);
         return rows.length > 0 && rows.every((item) => selected.has(item.key));
@@ -216,11 +218,13 @@ const h = react.createElement;
       }, []);
 
       const selectUnimported = react.useCallback(() => {
-        setSelected(() => new Set(filtered.filter((item) => !item.importedSessionId).map((item) => item.key)));
+        setSelected(() => new Set(filtered.filter((item) => !item.importedSessionId && !item.unavailable).map((item) => item.key)));
       }, [filtered]);
 
       const startImport = react.useCallback(async (keys) => {
         if (keys.length === 0) return;
+        const alreadyImported = keys.filter(key => conversations.some(item => item.key === key && item.importedSessionId)).length;
+        if (alreadyImported && !globalThis.confirm(fmt(t('confirmReimport'), { n: alreadyImported }))) return;
         const items = keys.map((key) => {
           const marker = key.indexOf(':');
           return marker < 0 ? { source: 'cursor', id: key } : { source: key.slice(0, marker), id: key.slice(marker + 1) };
@@ -234,7 +238,7 @@ const h = react.createElement;
         } catch (error) {
           setNotice(error instanceof Error ? error.message : String(error));
         }
-      }, [rpc, importMode]);
+      }, [rpc, importMode, t, conversations]);
 
       const cancelImport = react.useCallback(async () => {
         if (job === null || job.jobId === undefined) return;
@@ -263,7 +267,7 @@ const h = react.createElement;
       }, [job, startImport]);
 
       const selectedList = Array.from(selected);
-      const unimportedCount = conversations.filter((item) => !item.importedSessionId).length;
+      const unimportedCount = conversations.filter((item) => !item.importedSessionId && !item.unavailable).length;
       const importedTotal = conversations.filter((item) => item.importedSessionId).length;
 
       // ── source rail (master): switching a source never leaves the page ──
@@ -364,7 +368,7 @@ const h = react.createElement;
                 h(
                   'span',
                   { className: 'ci-group-check', onClick: (event) => event.stopPropagation() },
-                  h(P.Checkbox, { checked: groupAllSelected(group), onChange: () => toggleGroupSelection(group) }),
+                  h(P.Checkbox, { checked: groupAllSelected(group), disabled: groupUnimported(group).length === 0, onChange: () => toggleGroupSelection(group) }),
                 ),
               ),
               open
@@ -415,7 +419,9 @@ const h = react.createElement;
               { value: 'all', label: t('scopeAll'), id: 'session-import-scope-all' },
             ],
           })
-        : null;
+        : h('div', { className: 'ci-scope' },
+          h('button', { type: 'button', 'aria-pressed': scope === 'unimported', onClick: () => setScope('unimported') }, t('scopeUnimported')),
+          h('button', { type: 'button', 'aria-pressed': scope === 'all', onClick: () => setScope('all') }, t('scopeAll')));
 
       const sourceIcon = currentSource !== undefined ? SOURCE_ICONS[currentSource.id] : undefined;
       const initialLoading = list.phase === 'loading' && list.data === null;

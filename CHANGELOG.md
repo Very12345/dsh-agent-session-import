@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.6-very12345.1 — personal fork
+
+- Read Codex desktop project assignments, explicit thread names and the archived rollout directory; show missing local transcripts without offering an invalid import.
+- Register selected Codex projects through the official DSH workspace service and attach newly created sessions. Existing imports are not overwritten.
+- Format Codex execution and wait arguments as readable code; remove known synthetic page-context wrappers while preserving user text around them.
+- Mark images whose original data is not imported and preserve visible agent-to-agent messages.
+- Validate with isolated Codex fixtures and the official DSH Host/workspace registry; no live conversations or model requests are used.
+
 ## 0.2.5 — 2026-11-17
 
 - Cursor: support Cursor 3.30's current composer storage and the newer `~/.cursor/projects/**/agent-transcripts/*.jsonl` store as one Cursor source.

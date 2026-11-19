@@ -1,5 +1,9 @@
 # dsh-agent-session-import
 
+这是 [howtomakeaname/dsh-agent-session-import](https://github.com/howtomakeaname/dsh-agent-session-import) 的个人分叉，由 Very12345 维护，保留上游 MIT 许可和原包名；不能与上游包同时启用。npm 上的同名包仍是上游版本。
+
+本分叉改进 Codex 导入：读取项目归属和自定义会话标题，扫描本地归档记录，标注仅有元数据但缺少正文的对话；导入时在 DSH 注册工作区并关联所选会话。接续友好模式将 Codex 的代码调用格式化为可读代码块。已有导入不会自动改写；切换到「全部」选择旧记录可以重新导入，会创建新会话并保留旧会话。
+
 [简体中文](README.md) | [English](README.en.md)
 
 [![npm version](https://img.shields.io/npm/v/dsh-agent-session-import.svg)](https://www.npmjs.com/package/dsh-agent-session-import)
@@ -24,14 +28,13 @@
 
 ## 安装
 
-### 从 npm 安装
+### 从 npm 安装上游版
 
 1. 打开 DSH 侧边栏 **Plugins**。
 2. **Add plugin** → 输入包名（或带版本）：
 
    ```
    dsh-agent-session-import
-   dsh-agent-session-import@0.2.5
    ```
 
 3. Install → 完成后点 **Enable now**（或到 Plugins 列表启用）。
@@ -43,7 +46,7 @@
 2. 输入仓库地址（推荐固定 commit）：
 
    ```
-   git+https://github.com/howtomakeaname/dsh-agent-session-import.git
+   git+https://github.com/Very12345/dsh-agent-session-import.git
    ```
 
    或本地 clone 后用该目录的绝对路径（例如 `~/code/dsh-agent-session-import`）。
@@ -61,9 +64,9 @@
 
 - 侧边栏 **Import Sessions** 面板：左侧来源导航，右侧会话列表**按项目文件夹分组、可展开/收起**，显示标题、更新时间、消息数和 Imported/Archived 徽标。
 - 支持搜索、`Unimported / All` 范围切换、组级全选、Select unimported、逐条勾选；导入弹窗展示总进度、当前条目、逐条结果，失败项可重试。
-- 两种导入模式（**内容都不丢**，区别只在展示与请求结构）：
+- 两种导入模式（结构化展示或普通文本；超长内容可能被截断）：
   - **Faithful**：思考、工具调用与结果保留为结构化卡片，最适合阅读；续聊时可能受模型 API 对历史 `tool_use`/`thinking` 的校验限制。
-  - **Resume-safe**：同样的内容以文本保留（`【思考】` / `[工具调用]` / `[工具结果]`），去掉 tool/thinking wire 结构，任何模型都能安全继续对话。
+  - **Resume-safe**：将思考摘要、工具调用和结果转成普通文本，通常更适合续聊；超长内容可能截断。
 - 一条来源对话 → 一条 DSH 会话，尽量回到原项目目录（目录不存在时回退到用户 home）。
 - 会话标题与消息数写入 DSH 投影缓存，导入后侧边栏直接可见。
 - 已导入记录保存在 `$DSH_HOME/session-import/imported.json`，重复导入会显示徽标；导入结束后列表自动刷新。

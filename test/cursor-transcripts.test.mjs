@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { listAgentTranscriptSummaries, loadAgentTranscript } from '../lib/host/cursor-transcripts.js';
 
 function makeTranscript() {
   const root = mkdtempSync(join(tmpdir(), 'cursor-transcripts-'));
-  const project = root.slice(1).replaceAll('/', '-');
+  const project = basename(root);
   const dir = join(root, project, 'agent-transcripts', 'conversation-1');
   mkdirSync(dir, { recursive: true });
   const file = join(dir, 'conversation-1.jsonl');
