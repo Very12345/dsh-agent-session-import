@@ -139,3 +139,57 @@ test('a database-only Codex home lists and loads paginated history', () => {
   fs.rmSync(home,{recursive:true,force:true});
  }
 });
+
+test('Codex extended-length cwds join their real project instead of becoming pseudo projects', async () => {
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'dsh-codex-fixture-'));
+ try {
+  const BS=String.fromCharCode(92);
+  const project='D:'+BS+'Work'+BS+'Bohr';
+  const runDir=project+BS+'runs'+BS+'dev-03'+BS+'fast-r3';
+  const id='66666666-6666-4666-8666-666666666666';
+  fs.mkdirSync(path.join(home,'sessions'),{recursive:true});
+  fs.writeFileSync(path.join(home,'sessions','rollout-2026-01-01T00-00-00-'+id+'.jsonl'),
+   JSON.stringify({type:'session_meta',payload:{id,cwd:BS+BS+'?'+BS+runDir}})+'\n');
+  fs.writeFileSync(path.join(home,'.codex-global-state.json'),JSON.stringify({
+   'local-projects':{p:{id:'p',name:'Bohr',rootPaths:[project]}},
+   'thread-project-assignments':{},
+   'app-server-project-id-by-legacy-project-id-by-host':{}
+  }));
+  const provider=pathToFileURL(path.resolve('lib/host/providers/codex.js')).href;
+  const code='import {list} from '+JSON.stringify(provider)+';const rows=await list();console.log(JSON.stringify(rows[0]));';
+  const result=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env,CODEX_HOME:home},encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  const row=JSON.parse(result.stdout);
+  assert.equal(row.cwd,runDir);
+  assert.equal(row.projectName,'Bohr');
+  assert.equal(row.cwdLabel,'fast-r3');
+ } finally {
+  assert.equal(path.dirname(home),path.resolve(os.tmpdir()));assert.ok(path.basename(home).startsWith('dsh-codex-fixture-'));
+  fs.rmSync(home,{recursive:true,force:true});
+ }
+});
+
+test('automation and subagent threads are classified apart from conversations', async () => {
+ const {classifyCodexThread}=await import('../lib/host/providers/codex-metadata.js');
+ assert.equal(classifyCodexThread({source:'exec',thread_source:'user'}).kind,'automation');
+ assert.equal(classifyCodexThread({source:'vscode',thread_source:'user'}).kind,'conversation');
+ assert.equal(classifyCodexThread({source:'x',thread_source:'subagent'}).kind,'subagent');
+});
+
+test('Codex exec programs render as readable code, not escaped JSON', () => {
+ const program='const r = await tools.exec_command({cmd:"pwd"});\ntext(r.output);';
+ const conversation={source:'codex',id:'x',title:'T',createdAt:1,turns:[{at:1,user:{content:[{type:'text',text:'task'}]},runs:[{
+  at:2,blocks:[{type:'tool-call',id:'a',name:'exec',arguments:JSON.stringify({text:program})}],
+  toolResults:[{callId:'a',name:'exec',arguments:JSON.stringify({text:program}),output:'ok',isError:false,at:3}]
+ }]}]};
+ const plan=buildSessionPlan(conversation,{cwd:os.tmpdir(),mode:'full'});
+ const call=plan.events.find(event=>event.type==='tool/call');
+ const args=JSON.parse(call.data.arguments);
+ assert.equal(args.command,program);
+ assert.equal(args.code,program);
+ assert.equal(Object.keys(args).sort().join(','),'code,command');
+ const compatible=buildSessionPlan(conversation,{cwd:os.tmpdir(),mode:'compatible'});
+ const text=compatible.events.filter(e=>e.type==='assistant/message').flatMap(e=>e.data.message.content).map(b=>b.text).join('\n');
+ assert.ok(text.includes(program));
+ assert.equal(text.includes('\\n'),false);
+});

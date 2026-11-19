@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.7-very12345.1 — personal fork
+
+- Fix Codex project grouping: Codex stores cwds with the Windows extended-length prefix (`\\?\D:\...`), which never matched a project root and turned every run directory (`fast-r3`, `best-r3`) into its own pseudo project. The prefix is now stripped before matching.
+- Classify Codex threads and let the panel filter them: conversations, automation runs (`exec` batch runs, guardian reviews, agent-created threads) and subagent threads are separated instead of mixed together.
+- Add an archived filter (hide / include / only) so archived rollouts no longer look like duplicate conversations.
+- Render Codex `exec` programs as readable code: the program is exposed under `command`/`code` instead of an escaped JSON string, in both faithful and resume-safe modes.
+
 ## 0.2.6-very12345.1 — personal fork
 
 - Read Codex desktop project assignments, explicit thread names and the archived rollout directory; show missing local transcripts without offering an invalid import.

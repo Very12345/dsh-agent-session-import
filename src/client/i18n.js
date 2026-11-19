@@ -58,6 +58,18 @@ export const zh = {
       collapseAllHint: '收起全部项目',
       groupCount: '{n} 条对话',
       groupImported: '{n} 已导入',
+      archivedLabel: '归档',
+      archivedHide: '隐藏已归档',
+      archivedWith: '含已归档',
+      archivedOnly: '仅已归档',
+      kindLabel: '会话类型',
+      kindConversation: '对话',
+      kindAutomation: '运行记录',
+      kindSubagent: '子代理',
+      kindAll: '全部类型',
+      kindAutomationHint: 'Codex 的批量 exec 运行与自动审查记录，不是普通对话',
+      kindSubagentHint: '子代理会话，属于其他会话的下级记录',
+
     };
 export const en = {
       panel: 'Import Sessions',
@@ -118,6 +130,18 @@ export const en = {
       collapseAllHint: 'Collapse all projects',
       groupCount: '{n} conversations',
       groupImported: '{n} imported',
+      archivedLabel: 'Archived',
+      archivedHide: 'Hide archived',
+      archivedWith: 'Include archived',
+      archivedOnly: 'Archived only',
+      kindLabel: 'Thread type',
+      kindConversation: 'Conversations',
+      kindAutomation: 'Automation runs',
+      kindSubagent: 'Subagents',
+      kindAll: 'All types',
+      kindAutomationHint: 'Codex batch exec runs and automatic review records, not ordinary conversations',
+      kindSubagentHint: 'Subagent threads recorded beneath another session',
+
     };
 
     /** Fill `{name}` placeholders in localized copy. */

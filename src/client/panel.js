@@ -39,6 +39,40 @@ const h = react.createElement;
           // Preference only; import works without storage.
         }
       }, []);
+      /** Archive filter: hide archived threads unless the user opts in. */
+      const [archivedFilter, setArchivedFilterInner] = react.useState(() => {
+        try {
+          const stored = globalThis.localStorage?.getItem('session-import:archived');
+          return stored === 'only' || stored === 'with' ? stored : 'hide';
+        } catch {
+          return 'hide';
+        }
+      });
+      const setArchivedFilter = react.useCallback((next) => {
+        setArchivedFilterInner(next);
+        try {
+          globalThis.localStorage?.setItem('session-import:archived', next);
+        } catch {
+          // Preference only.
+        }
+      }, []);
+      /** Codex thread kind filter: conversations, automation runs, subagents. */
+      const [kindFilter, setKindFilterInner] = react.useState(() => {
+        try {
+          const stored = globalThis.localStorage?.getItem('session-import:kind');
+          return stored === 'conversation' || stored === 'automation' || stored === 'subagent' ? stored : 'conversation';
+        } catch {
+          return 'conversation';
+        }
+      });
+      const setKindFilter = react.useCallback((next) => {
+        setKindFilterInner(next);
+        try {
+          globalThis.localStorage?.setItem('session-import:kind', next);
+        } catch {
+          // Preference only.
+        }
+      }, []);
       const [expandedGroups, setExpandedGroups] = react.useState(() => new Set());
       const [importMode, setImportModeInner] = react.useState(() => {
         try {
@@ -139,6 +173,16 @@ const h = react.createElement;
         const needle = query.trim().toLowerCase();
         return conversations.filter((item) => {
           if (scope === 'unimported' && item.importedSessionId) return false;
+          // Archive filter: archived rollouts live in a separate directory and
+          // are easy to mistake for duplicates, so they start hidden.
+          if (archivedFilter === 'hide' && item.isArchived) return false;
+          if (archivedFilter === 'only' && !item.isArchived) return false;
+          // Thread-kind filter: Codex records batch exec runs and subagents in
+          // the same store; they are not ordinary conversations.
+          if (item.threadKind !== undefined && item.threadKind !== null) {
+            const bucket = item.threadKind === 'automation' || item.threadKind === 'assistant' ? 'automation' : item.threadKind;
+            if (kindFilter !== 'all' && bucket !== kindFilter) return false;
+          }
           if (needle === '') return true;
           return String(item.title).toLowerCase().includes(needle)
             || String(item.projectName ?? '').toLowerCase().includes(needle)
@@ -146,7 +190,7 @@ const h = react.createElement;
             || String(item.cwdLabel ?? '').toLowerCase().includes(needle)
             || String(item.cwd ?? '').toLowerCase().includes(needle);
         });
-      }, [conversations, query, scope]);
+      }, [conversations, query, scope, archivedFilter, kindFilter]);
 
       const searching = query.trim() !== '';
       const groups = react.useMemo(() => {
@@ -423,6 +467,40 @@ const h = react.createElement;
           h('button', { type: 'button', 'aria-pressed': scope === 'unimported', onClick: () => setScope('unimported') }, t('scopeUnimported')),
           h('button', { type: 'button', 'aria-pressed': scope === 'all', onClick: () => setScope('all') }, t('scopeAll')));
 
+      const archivedControl = primitivesAvailable.SegmentedTabs
+        ? h(P.SegmentedTabs, {
+            value: archivedFilter,
+            onChange: (next) => setArchivedFilter(next),
+            label: t('archivedLabel'),
+            items: [
+              { value: 'hide', label: t('archivedHide'), id: 'session-import-archived-hide' },
+              { value: 'with', label: t('archivedWith'), id: 'session-import-archived-with' },
+              { value: 'only', label: t('archivedOnly'), id: 'session-import-archived-only' },
+            ],
+          })
+        : h('div', { className: 'ci-scope' },
+          h('button', { type: 'button', 'aria-pressed': archivedFilter === 'hide', onClick: () => setArchivedFilter('hide') }, t('archivedHide')),
+          h('button', { type: 'button', 'aria-pressed': archivedFilter === 'with', onClick: () => setArchivedFilter('with') }, t('archivedWith')),
+          h('button', { type: 'button', 'aria-pressed': archivedFilter === 'only', onClick: () => setArchivedFilter('only') }, t('archivedOnly')));
+
+      const kindControl = primitivesAvailable.SegmentedTabs
+        ? h(P.SegmentedTabs, {
+            value: kindFilter,
+            onChange: (next) => setKindFilter(next),
+            label: t('kindLabel'),
+            items: [
+              { value: 'conversation', label: t('kindConversation'), id: 'session-import-kind-conversation' },
+              { value: 'automation', label: t('kindAutomation'), id: 'session-import-kind-automation' },
+              { value: 'subagent', label: t('kindSubagent'), id: 'session-import-kind-subagent' },
+              { value: 'all', label: t('kindAll'), id: 'session-import-kind-all' },
+            ],
+          })
+        : h('div', { className: 'ci-scope' },
+          h('button', { type: 'button', 'aria-pressed': kindFilter === 'conversation', onClick: () => setKindFilter('conversation') }, t('kindConversation')),
+          h('button', { type: 'button', 'aria-pressed': kindFilter === 'automation', onClick: () => setKindFilter('automation') }, t('kindAutomation')),
+          h('button', { type: 'button', 'aria-pressed': kindFilter === 'subagent', onClick: () => setKindFilter('subagent') }, t('kindSubagent')),
+          h('button', { type: 'button', 'aria-pressed': kindFilter === 'all', onClick: () => setKindFilter('all') }, t('kindAll')));
+
       const sourceIcon = currentSource !== undefined ? SOURCE_ICONS[currentSource.id] : undefined;
       const initialLoading = list.phase === 'loading' && list.data === null;
       const loadingPane = h(
@@ -500,6 +578,8 @@ const h = react.createElement;
                 'aria-label': t('searchPlaceholder'),
               }),
               scopeControl,
+              kindControl,
+              archivedControl,
               h(P.Button, { variant: 'ghost', onClick: selectUnimported, disabled: unimportedCount === 0 }, t('selectAll')),
               h(P.Button, {
                 variant: 'ghost',
