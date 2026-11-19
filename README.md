@@ -2,7 +2,7 @@
 
 这是 [howtomakeaname/dsh-agent-session-import](https://github.com/howtomakeaname/dsh-agent-session-import) 的个人分叉，由 Very12345 维护，保留上游 MIT 许可和原包名；不能与上游包同时启用。npm 上的同名包仍是上游版本。
 
-本分叉改进 Codex 导入：读取项目归属和自定义会话标题，扫描本地归档记录，标注仅有元数据但缺少正文的对话；导入时在 DSH 注册工作区并关联所选会话。接续友好模式将 Codex 的代码调用格式化为可读代码块。已有导入不会自动改写；切换到「全部」选择旧记录可以重新导入，会创建新会话并保留旧会话。
+本分叉改进 Codex 导入：读取项目归属和自定义会话标题，扫描本地归档记录，并从本机分页历史数据库读取没有 JSONL 的会话；标注只有元数据且两处均无正文的记录。导入时在 DSH 注册工作区并关联所选会话。接续友好模式将 Codex 的代码调用格式化为可读代码块。已有导入不会自动改写；切换到「全部」选择旧记录可以重新导入，会创建新会话并保留旧会话。
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -106,6 +106,7 @@ npm run check          # bundle 是否最新、语法、README 截图、绝对�
 ## 已知限制
 
 - **Codex**：完整 reasoning 链不落明文，本地只保留可见的 summary；桌面版与 CLI 共用 `~/.codex`，已一并覆盖。
+- **Codex 分页历史**：从本机数据库的可见消息、思考摘要及工具记录重建；数据库没有保存的原始结构、加密思考和图片无法还原。图片以提示标记保留，不复制原图。
 - **Kimi**：只支持 Kimi Agent / Kimi Code 会话；普通 Kimi 聊天记录在服务端，本地没有正文。
 - **ZCode**：schema 绑定 ZCode 0.16.x；rewind 会话按线性历史导入。
 - **Cursor**：按 composer 存储格式适配，而不是按 App 版本硬编码：V1（`_v < 3`）从 `composerData.capabilities[].data.bubbleDataMap` 读取工具数据，V3+（`_v ≥ 3`）从 bubble 的 `toolFormerData` 读取；Cursor 3.30 的 `/t:` / `/s:` 子记录也会作为消息读取。Cursor 3.30 Agents Window / CLI 的 `~/.cursor/projects/**/agent-transcripts/*.jsonl` 也会扫描；该 transcript 格式只记录工具输入、不记录工具结果，因此工具调用会以文本形式保留，不伪造工具结果事件。

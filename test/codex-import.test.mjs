@@ -14,7 +14,7 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
  try {
   const project=path.join(home,'project'),worktree=path.join(home,'worktree');
   fs.mkdirSync(project);fs.mkdirSync(worktree);fs.mkdirSync(path.join(home,'sessions'));fs.mkdirSync(path.join(home,'archived_sessions'));
-  const active='11111111-1111-4111-8111-111111111111', archived='22222222-2222-4222-8222-222222222222', missing='33333333-3333-4333-8333-333333333333';
+  const active='11111111-1111-4111-8111-111111111111', archived='22222222-2222-4222-8222-222222222222', missing='33333333-3333-4333-8333-333333333333', paged='44444444-4444-4444-8444-444444444444';
   const records=id=>[
    {type:'session_meta',payload:{id,cwd:worktree,timestamp:'2026-01-01T00:00:00Z'}},
    {type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:'first message <in-app-browser-context>synthetic context</in-app-browser-context> after <external_codex_apps_selected_page_part_1_of_1>synthetic page</external_codex_apps_selected_page_part_1_of_1>'},{type:'input_image',image_url:'data:image/png;base64,fixture'}]}},
@@ -28,7 +28,7 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
   fs.writeFileSync(path.join(home,'session_index.jsonl'),JSON.stringify({id:active,thread_name:'Indexed title'})+'\n'+JSON.stringify({id:missing,thread_name:'Unavailable chat'})+'\n');
   fs.writeFileSync(path.join(home,'.codex-global-state.json'),JSON.stringify({
    'local-projects':{'legacy':{id:'legacy',name:'My project',rootPaths:[project]}},
-   'thread-project-assignments':{[active]:{projectKind:'local',projectId:'legacy'},[archived]:{projectKind:'local',projectId:'legacy'}},
+   'thread-project-assignments':{[active]:{projectKind:'local',projectId:'legacy'},[archived]:{projectKind:'local',projectId:'legacy'},[paged]:{projectKind:'local',projectId:'legacy'}},
    'app-server-project-id-by-legacy-project-id-by-host':{local:{legacy:'project-1'}}
   }));
   const db=new DatabaseSync(path.join(home,'state_5.sqlite'));
@@ -36,15 +36,23 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
   db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(active,'Renamed title','Old title',worktree,0,null);
   db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(archived,'Archived title','Old title',worktree,1,null);
   db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(missing,'Unavailable chat','Old title',project,0,null);
+  db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(paged,'Database title','Old title',worktree,0,null);
   db.prepare('INSERT INTO projects VALUES (?,?)').run('project-1','My project');
   db.prepare('INSERT INTO project_roots VALUES (?,?)').run('project-1',project);db.close();
+  const history=new DatabaseSync(path.join(home,'thread_history_1.sqlite'));
+  history.exec('CREATE TABLE thread_items (thread_id TEXT,rollout_ordinal INTEGER,item_type TEXT,item_json TEXT,created_at_ms INTEGER);');
+  const add=history.prepare('INSERT INTO thread_items VALUES (?,?,?,?,?)');
+  add.run(paged,1,'userMessage',JSON.stringify({content:[{type:'text',text:'database question'}]}),1000);
+  add.run(paged,2,'commandExecution',JSON.stringify({id:'exec-1',command:'printf fixture',cwd:worktree,aggregatedOutput:'fixture output',exitCode:0}),1100);
+  add.run(paged,3,'agentMessage',JSON.stringify({text:'database answer'}),1200);
+  history.close();
   const provider=pathToFileURL(path.resolve('lib/host/providers/codex.js')).href;
   const serviceModule=pathToFileURL(path.resolve('lib/host/service.js')).href;
-  const code='import {list,load} from '+JSON.stringify(provider)+';import {ImportService} from '+JSON.stringify(serviceModule)+';const rows=await list();const active=await load('+JSON.stringify(active)+');const archived=await load('+JSON.stringify(archived)+');const saved=[],attached=[],created=[];const persistence={async create(header){const row={header,events:[]};saved.push(row);return {async append(events){row.events.push(...events)},async flush(){},async close(){}}}};const registry={async create(cwd,title){created.push({cwd,title});return {async attachSession(id){attached.push(id)}}}};const service=new ImportService({logger:{info(){},warn(){}},get(name){return name==="workspaceRegistry"?registry:undefined}});const job=service.jobs.create(2,"compatible");await service.runJob(job,[{source:"codex",id:'+JSON.stringify(active)+'},{source:"codex",id:'+JSON.stringify(archived)+'}],persistence,{mode:"compatible"});console.log(JSON.stringify({rows,active,archived,saved,attached,created,job}));';
+  const code='import {list,load} from '+JSON.stringify(provider)+';import {ImportService} from '+JSON.stringify(serviceModule)+';const rows=await list();const active=await load('+JSON.stringify(active)+');const archived=await load('+JSON.stringify(archived)+');const paged=await load('+JSON.stringify(paged)+');const saved=[],attached=[],created=[];const persistence={async create(header){const row={header,events:[]};saved.push(row);return {async append(events){row.events.push(...events)},async flush(){},async close(){}}}};const registry={async create(cwd,title){created.push({cwd,title});return {async attachSession(id){attached.push(id)}}}};const service=new ImportService({logger:{info(){},warn(){}},get(name){return name==="workspaceRegistry"?registry:undefined}});const job=service.jobs.create(3,"compatible");await service.runJob(job,[{source:"codex",id:'+JSON.stringify(active)+'},{source:"codex",id:'+JSON.stringify(archived)+'},{source:"codex",id:'+JSON.stringify(paged)+'}],persistence,{mode:"compatible"});console.log(JSON.stringify({rows,active,archived,paged,saved,attached,created,job}));';
   const result=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env,CODEX_HOME:home,DSH_HOME:path.join(home,'dsh')},encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   const data=JSON.parse(result.stdout),byId=new Map(data.rows.map(row=>[row.id,row]));
-  assert.equal(byId.size,3);
+  assert.equal(byId.size,4);
   assert.equal(byId.get(active).title,'Renamed title');
   assert.equal(data.active.title,'Renamed title');
   const userText=data.active.turns[0].user.content[0].text;
@@ -59,8 +67,12 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
   assert.equal(byId.get(archived).isArchived,true);
   assert.equal(data.archived.title,'Archived title');
   assert.equal(byId.get(missing).unavailable,true);
-  assert.equal(data.job.results.filter(row=>row.ok).length,2);
-  assert.equal(data.saved.length,2);assert.equal(data.attached.length,2);
+  assert.equal(byId.get(paged).unavailable,false);
+  assert.equal(data.paged.title,'Database title');
+  assert.match(JSON.stringify(data.paged.turns),/database question/);
+  assert.match(JSON.stringify(data.paged.turns),/fixture output/);
+  assert.equal(data.job.results.filter(row=>row.ok).length,3);
+  assert.equal(data.saved.length,3);assert.equal(data.attached.length,3);
   assert.ok(data.created.every(row=>row.cwd===project && row.title==='My project'));
   assert.ok(data.saved.every(row=>row.header.cwd===project));
   assert.equal(data.saved[0].events.find(event=>event.type==='session/title').data.title,'Renamed title');
@@ -95,6 +107,31 @@ test('an archived-only Codex home remains available to the importer', () => {
   const result=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env,CODEX_HOME:home},encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   const value=JSON.parse(result.stdout);assert.equal(value.status.available,true);assert.equal(value.rows[0].isArchived,true);
+ } finally {
+  assert.equal(path.dirname(home),path.resolve(os.tmpdir()));assert.ok(path.basename(home).startsWith('dsh-codex-fixture-'));
+  fs.rmSync(home,{recursive:true,force:true});
+ }
+});
+
+test('a database-only Codex home lists and loads paginated history', () => {
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'dsh-codex-fixture-'));
+ try {
+  const id='55555555-5555-4555-8555-555555555555';
+  fs.writeFileSync(path.join(home,'session_index.jsonl'),JSON.stringify({id,thread_name:'Database-only session'})+'\n');
+  const history=new DatabaseSync(path.join(home,'thread_history_1.sqlite'));
+  history.exec('CREATE TABLE thread_items (thread_id TEXT,rollout_ordinal INTEGER,item_type TEXT,item_json TEXT,created_at_ms INTEGER);');
+  const add=history.prepare('INSERT INTO thread_items VALUES (?,?,?,?,?)');
+  add.run(id,1,'userMessage',JSON.stringify({content:[{type:'text',text:'question'}]}),1000);
+  add.run(id,2,'agentMessage',JSON.stringify({text:'answer'}),1200);
+  history.close();
+  const provider=pathToFileURL(path.resolve('lib/host/providers/codex.js')).href;
+  const code='import {status,list,load} from '+JSON.stringify(provider)+';console.log(JSON.stringify({status:await status(),rows:await list(),loaded:await load('+JSON.stringify(id)+')}));';
+  const result=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env,CODEX_HOME:home},encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  const value=JSON.parse(result.stdout);
+  assert.equal(value.status.available,true);assert.equal(value.rows[0].unavailable,false);
+  assert.equal(value.loaded.title,'Database-only session');assert.match(JSON.stringify(value.loaded.turns),/answer/);
+  assert.equal(value.loaded.createdAt,1000);assert.equal(value.loaded.updatedAt,1200);
  } finally {
   assert.equal(path.dirname(home),path.resolve(os.tmpdir()));assert.ok(path.basename(home).startsWith('dsh-codex-fixture-'));
   fs.rmSync(home,{recursive:true,force:true});

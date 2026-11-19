@@ -18,8 +18,8 @@ try {
  await fs.symlink(source,link,process.platform==='win32'?'junction':'dir');
  await fs.mkdir(path.join(codex,'sessions'),{recursive:true});await fs.mkdir(path.join(codex,'archived_sessions'));
  await fs.mkdir(project);await fs.mkdir(worktree);
- const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'],missing='33333333-3333-4333-8333-333333333333';
- for(let i=0;i<ids.length;i++){
+ const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','44444444-4444-4444-8444-444444444444'],missing='33333333-3333-4333-8333-333333333333';
+ for(let i=0;i<2;i++){
   const records=[{type:'session_meta',payload:{id:ids[i],cwd:worktree,timestamp:'2026-01-01T00:00:00Z'}},
    {type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:'fixture question'}]}},
    {type:'response_item',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'fixture answer'}]}}];
@@ -29,9 +29,15 @@ try {
  await fs.writeFile(path.join(codex,'.codex-global-state.json'),JSON.stringify({'local-projects':{fixture:{id:'fixture',name:'Fixture project',rootPaths:[project]}},'thread-project-assignments':Object.fromEntries([...ids,missing].map(id=>[id,{projectKind:'local',projectId:'fixture'}]))}));
  const db=new DatabaseSync(path.join(codex,'state_5.sqlite'));
  db.exec('CREATE TABLE threads (id TEXT,name TEXT,title TEXT,cwd TEXT,archived INTEGER,project_id TEXT);');
- for(let i=0;i<ids.length;i++)db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(ids[i],'Fixture title '+i,'old',worktree,i,null);
+ for(let i=0;i<ids.length;i++)db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(ids[i],'Fixture title '+i,'old',worktree,i===1?1:0,null);
  db.prepare('INSERT INTO threads VALUES (?,?,?,?,?,?)').run(missing,'Fixture missing','old',project,0,null);
  db.close();
+ const history=new DatabaseSync(path.join(codex,'thread_history_1.sqlite'));
+ history.exec('CREATE TABLE thread_items (thread_id TEXT,rollout_ordinal INTEGER,item_type TEXT,item_json TEXT,created_at_ms INTEGER);');
+ const add=history.prepare('INSERT INTO thread_items VALUES (?,?,?,?,?)');
+ add.run(ids[2],1,'userMessage',JSON.stringify({content:[{type:'text',text:'database question'}]}),1000);
+ add.run(ids[2],2,'agentMessage',JSON.stringify({text:'database answer'}),1200);
+ history.close();
  await fs.writeFile(path.join(profile,'package.json'),JSON.stringify({name:'isolated-import-fixture',private:true,dsh:{profile:{bundles:['@deepseek-ai/dsh-base','@deepseek-ai/dsh-web-app','dsh-agent-session-import']}},dependencies:{}}));
  await fs.writeFile(path.join(profile,'cordis.yml'),'[]\n');
  await fs.writeFile(proof,"export const inject=['webServer','workspaceRegistry'];export function apply(ctx){ctx.effect(()=>ctx.webServer.register({kind:'exact',path:'/fixture/workspaces',handler:async(_req,res)=>{try{const rows=await ctx.workspaceRegistry.list(),out=[];for await(const w of rows)out.push({path:await w.path,title:await w.title,sessionIds:await w.sessionIds});res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify(out));}catch(e){res.writeHead(500);res.end(e.message);}}}));}");
@@ -54,7 +60,8 @@ try {
   const data=await response.json();assert.equal(data.ok,true,JSON.stringify(data.error));return data.value;
  }
  const listing=await rpc('list',{refresh:true}),codexRows=listing.sources.find(row=>row.id==='codex').conversations;
- assert.equal(codexRows.length,3);assert.equal(codexRows.find(row=>row.id===ids[1]).isArchived,true);
+ assert.equal(codexRows.length,4);assert.equal(codexRows.find(row=>row.id===ids[1]).isArchived,true);
+ assert.equal(codexRows.find(row=>row.id===ids[2]).historySource,'sqlite');
  assert.equal(codexRows.find(row=>row.id===missing).unavailable,true);
  assert.ok(codexRows.every(row=>row.projectName==='Fixture project'));
  if(process.env.DSH_TEST_PLAYWRIGHT){
@@ -76,21 +83,21 @@ try {
    await group.waitFor({timeout:5000});
    const groupSelector=group.locator('.ci-group-check input, .ci-group-check [role=checkbox]').first();
    await groupSelector.dispatchEvent('click');
-   assert.equal(await group.locator('.ci-row[aria-checked="true"]').count(),2);
+   assert.equal(await group.locator('.ci-row[aria-checked="true"]').count(),3);
    assert.equal(await group.locator('.ci-row[aria-disabled="true"]').count(),1);
    await group.locator('.ci-row[aria-disabled="false"]').first().dispatchEvent('click');
-   assert.equal(await group.locator('.ci-row[aria-checked="true"]').count(),1);
+   assert.equal(await group.locator('.ci-row[aria-checked="true"]').count(),2);
    assert.deepEqual(errors,[]);
   }finally{await browser.close();}
  }
  const started=await rpc('import',{items:ids.map(id=>({source:'codex',id})),options:{mode:'compatible'}});
  let status;for(let i=0;i<60;i++){status=await rpc('status',{jobId:started.jobId});if(status.state!=='running')break;await new Promise(resolve=>setTimeout(resolve,100));}
- assert.equal(status.state,'done');assert.equal(status.results.filter(row=>row.ok).length,2,JSON.stringify(status.results));
+ assert.equal(status.state,'done');assert.equal(status.results.filter(row=>row.ok).length,3,JSON.stringify(status.results));
  const workspaces=await(await fetch(origin+'/fixture/workspaces')).json();
  const workspace=workspaces.find(row=>path.resolve(row.path)===path.resolve(project));
- assert.ok(workspace,JSON.stringify(workspaces));assert.equal(workspace.title,'Fixture project');assert.equal(workspace.sessionIds.length,2);
- assert.deepEqual(status.results.map(row=>row.title).sort(),['Fixture title 0','Fixture title 1']);
- console.log(JSON.stringify({officialHost:true,projectCreated:true,attachedSessions:workspace.sessionIds.length,archivedImported:true,titlesPreserved:true,projectSelectionUi:!!process.env.DSH_TEST_PLAYWRIGHT,modelRequests:0}));
+ assert.ok(workspace,JSON.stringify(workspaces));assert.equal(workspace.title,'Fixture project');assert.equal(workspace.sessionIds.length,3);
+ assert.deepEqual(status.results.map(row=>row.title).sort(),['Fixture title 0','Fixture title 1','Fixture title 2']);
+ console.log(JSON.stringify({officialHost:true,projectCreated:true,attachedSessions:workspace.sessionIds.length,archivedImported:true,databaseImported:true,titlesPreserved:true,projectSelectionUi:!!process.env.DSH_TEST_PLAYWRIGHT,modelRequests:0}));
 }finally {
  if(child?.exitCode===null){child.kill();await Promise.race([new Promise(resolve=>child.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,5000))]);}
  if(link)await fs.unlink(link);

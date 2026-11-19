@@ -2,7 +2,7 @@
 
 This is a personal fork of [howtomakeaname/dsh-agent-session-import](https://github.com/howtomakeaname/dsh-agent-session-import), maintained by Very12345 under the original MIT license. It retains the upstream package name and must replace, rather than be enabled alongside, the upstream installation. The npm package is the upstream version.
 
-The fork improves Codex project grouping, renamed titles, archived transcripts, missing local transcript reporting, workspace registration and readable tool calls. Reimporting creates a new DSH session and preserves the previous import.
+The fork improves Codex project grouping, renamed titles, archived transcripts, local paginated SQLite history, missing transcript reporting, workspace registration and readable tool calls. Image content and encrypted reasoning cannot be reconstructed. Reimporting creates a new DSH session and preserves the previous import.
 
 [English](README.en.md) | [简体中文](README.md)
 

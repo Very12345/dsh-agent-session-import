@@ -3,6 +3,7 @@
 ## 0.2.6-very12345.1 — personal fork
 
 - Read Codex desktop project assignments, explicit thread names and the archived rollout directory; show missing local transcripts without offering an invalid import.
+- Reconstruct locally available paginated conversations from Codex thread-history SQLite when no JSONL rollout is present.
 - Register selected Codex projects through the official DSH workspace service and attach newly created sessions. Existing imports are not overwritten.
 - Format Codex execution and wait arguments as readable code; remove known synthetic page-context wrappers while preserving user text around them.
 - Mark images whose original data is not imported and preserve visible agent-to-agent messages.
