@@ -42,7 +42,7 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
   const history=new DatabaseSync(path.join(home,'thread_history_1.sqlite'));
   history.exec('CREATE TABLE thread_items (thread_id TEXT,rollout_ordinal INTEGER,item_type TEXT,item_json TEXT,created_at_ms INTEGER);');
   const add=history.prepare('INSERT INTO thread_items VALUES (?,?,?,?,?)');
-  add.run(paged,1,'userMessage',JSON.stringify({content:[{type:'text',text:'database question'}]}),1000);
+  add.run(paged,1,'userMessage',JSON.stringify({content:[{type:'text',text:'database question<in-app-browser-context>hidden snapshot</in-app-browser-context> after'}]}),1000);
   add.run(paged,2,'commandExecution',JSON.stringify({id:'exec-1',command:'printf fixture',cwd:worktree,aggregatedOutput:'fixture output',exitCode:0}),1100);
   add.run(paged,3,'agentMessage',JSON.stringify({text:'database answer'}),1200);
   history.close();
@@ -70,6 +70,8 @@ test('Codex discovery restores titles, archives, assigned projects and flags mis
   assert.equal(byId.get(paged).unavailable,false);
   assert.equal(data.paged.title,'Database title');
   assert.match(JSON.stringify(data.paged.turns),/database question/);
+  assert.match(JSON.stringify(data.paged.turns),/after/);
+  assert.doesNotMatch(JSON.stringify(data.paged.turns),/hidden snapshot/);
   assert.match(JSON.stringify(data.paged.turns),/fixture output/);
   assert.equal(data.job.results.filter(row=>row.ok).length,3);
   assert.equal(data.saved.length,3);assert.equal(data.attached.length,3);
