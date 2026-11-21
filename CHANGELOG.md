@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9-very12345.1 — personal fork
+
+- Expand Codex's private `:codex-file-citation{path="..." purpose="..."}` directive into a Markdown link whose text is the file name. DSH has no such directive, so an imported transcript previously showed the raw braces and attributes in the middle of an answer. Spaces in the path are percent-encoded so the link stays valid.
+- Already-imported sessions keep their stored text; reimport a conversation to pick this up.
+
 ## 0.2.8-very12345.1 — personal fork
 
 - Fence tool output in resume-safe mode. Codex returns diffs and source files whose lines start with `#`; flattening them into a paragraph made DSH render a Python comment such as `# R200 visual disk ...` as a document heading and squeeze the surrounding code into an unreadable line. Tool results are now wrapped in a fence longer than any backtick run inside them, with a `diff` tag when the content is a patch.

@@ -193,3 +193,29 @@ test('Codex exec programs render as readable code, not escaped JSON', () => {
  assert.ok(text.includes(program));
  assert.equal(text.includes('\\n'),false);
 });
+
+test('Codex file citations become Markdown links with the file name', () => {
+ const text='指南：\n\n:codex-file-citation{path="D:/Work/交付/先读_指南.pdf" purpose="output"}\n\n也见 :codex-file-citation{path="/tmp/review.pdf" purpose="source"} 处。';
+ // The directive is module-private; exercise it through the provider loader.
+ const home=fs.mkdtempSync(path.join(os.tmpdir(),'dsh-codex-fixture-'));
+ try {
+  fs.mkdirSync(path.join(home,'sessions'),{recursive:true});
+  const id='77777777-7777-4777-8777-777777777777';
+  fs.writeFileSync(path.join(home,'sessions','rollout-2026-01-01T00-00-00-'+id+'.jsonl'),
+   [JSON.stringify({type:'session_meta',payload:{id,cwd:home}}),
+    JSON.stringify({type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:'task'}]}}),
+    JSON.stringify({type:'response_item',payload:{type:'message',role:'assistant',content:[{type:'output_text',text}]}})
+   ].join('\n')+'\n');
+  const provider=pathToFileURL(path.resolve('lib/host/providers/codex.js')).href;
+  const code='import {load} from '+JSON.stringify(provider)+';const c=await load('+JSON.stringify(id)+');console.log(JSON.stringify(c.turns.flatMap(t=>t.runs).flatMap(r=>r.blocks).map(b=>b.text)));';
+  const result=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env,CODEX_HOME:home},encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  const out=JSON.parse(result.stdout).join('\n');
+  assert.equal(out.includes(':codex-file-citation'),false);
+  assert.match(out,/\[先读_指南\.pdf\]\(D:\/Work\/交付\/先读_指南\.pdf\)/);
+  assert.match(out,/\[review\.pdf\]\(\/tmp\/review\.pdf\)/);
+ } finally {
+  assert.equal(path.dirname(home),path.resolve(os.tmpdir()));assert.ok(path.basename(home).startsWith('dsh-codex-fixture-'));
+  fs.rmSync(home,{recursive:true,force:true});
+ }
+});
