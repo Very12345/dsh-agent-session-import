@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0-very12345.1 — personal fork
+
+- Reuse Codex's own context boundaries. Codex records each completed compaction as a `compacted` rollout line carrying the surviving replacement history and a window number; the importer now reads the newest one and emits a matching DSH `compaction/start` + `compaction/summary` pair.
+- Full history is still written: the compaction only adds a shadow list, so every imported message stays readable while a resumed model sees the same bounded window Codex itself kept.
+- A boundary whose surviving tail holds no real dialogue (only environment or developer instructions) is ignored rather than producing an empty-looking session.
+- Sessions stored through Codex's paginated history path carry only a compaction id and no replacement history, so they cannot be reused; those import in full without a boundary.
+
 ## 0.2.9-very12345.1 — personal fork
 
 - Expand Codex's private `:codex-file-citation{path="..." purpose="..."}` directive into a Markdown link whose text is the file name. DSH has no such directive, so an imported transcript previously showed the raw braces and attributes in the middle of an answer. Spaces in the path are percent-encoded so the link stays valid.

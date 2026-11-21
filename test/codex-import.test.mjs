@@ -219,3 +219,46 @@ test('Codex file citations become Markdown links with the file name', () => {
   fs.rmSync(home,{recursive:true,force:true});
  }
 });
+
+test('Codex compaction boundaries become DSH compaction events without dropping history', () => {
+ // A conversation whose boundary keeps a real dialogue tail.
+ const conversation = {
+  source: 'codex', id: 'c1', title: 'Compacted', createdAt: 1_000,
+  boundaries: [{ window: 2, at: 3_000, messages: [
+   { role: 'user', text: 'a'.repeat(200) },
+   { role: 'assistant', text: 'reply one'.repeat(40) },
+   { role: 'user', text: 'b'.repeat(200) },
+   { role: 'assistant', text: 'reply two'.repeat(40) },
+  ]}],
+  turns: [
+   { at: 1_100, user: { content: [{ type: 'text', text: 'old question' }] }, runs: [{ at: 1_200, blocks: [{ type: 'text', text: 'old answer' }], toolResults: [] }] },
+   { at: 3_100, user: { content: [{ type: 'text', text: 'new question' }] }, runs: [{ at: 3_200, blocks: [{ type: 'text', text: 'new answer' }], toolResults: [] }] },
+  ],
+ };
+ const plan = buildSessionPlan(conversation, { cwd: '/tmp', mode: 'full' });
+ // History is intact: both turns are still present.
+ assert.equal(plan.events.filter(e => e.type === 'user/message').length, 2);
+ const starts = plan.events.filter(e => e.type === 'compaction/start');
+ const summaries = plan.events.filter(e => e.type === 'compaction/summary');
+ assert.equal(starts.length, 1);
+ assert.equal(summaries.length, 1);
+ assert.equal(starts[0].data.compactionId, summaries[0].data.compactionId);
+ // Only events older than the boundary are shadowed.
+ const shadowed = summaries[0].data.shadowedSeqs;
+ assert.ok(shadowed.length > 0);
+ const early = plan.events.filter(e => e.time < 3_000 && (e.type === 'user/message' || e.type === 'assistant/message'));
+ assert.deepEqual(shadowed, early.map(e => e.seq));
+ assert.match(summaries[0].data.summary[0].text, /<compacted-summary>/);
+});
+
+test('a boundary whose tail holds no dialogue is ignored instead of emptying the session', () => {
+ const conversation = {
+  source: 'codex', id: 'c2', title: 'Env only', createdAt: 1_000,
+  boundaries: [{ window: 12, at: 5_000, messages: [{ role: 'user', text: '<environment_context>tiny</environment_context>' }] }],
+  turns: [{ at: 1_100, user: { content: [{ type: 'text', text: 'real question' }] }, runs: [{ at: 1_200, blocks: [{ type: 'text', text: 'real answer' }], toolResults: [] }] }],
+ };
+ const plan = buildSessionPlan(conversation, { cwd: '/tmp', mode: 'full' });
+ assert.equal(plan.events.filter(e => e.type === 'compaction/start').length, 0);
+ assert.equal(plan.events.filter(e => e.type === 'compaction/summary').length, 0);
+ assert.equal(plan.events.filter(e => e.type === 'user/message').length, 1);
+});
