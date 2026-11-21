@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8-very12345.1 — personal fork
+
+- Fence tool output in resume-safe mode. Codex returns diffs and source files whose lines start with `#`; flattening them into a paragraph made DSH render a Python comment such as `# R200 visual disk ...` as a document heading and squeeze the surrounding code into an unreadable line. Tool results are now wrapped in a fence longer than any backtick run inside them, with a `diff` tag when the content is a patch.
+- Quote reasoning summaries so heading-like lines inside them stay literal instead of restyling the page.
+- Already-imported sessions keep their stored shape; reimport a conversation to pick up the improved rendering.
+
 ## 0.2.7-very12345.1 — personal fork
 
 - Fix Codex project grouping: Codex stores cwds with the Windows extended-length prefix (`\\?\D:\...`), which never matched a project root and turned every run directory (`fast-r3`, `best-r3`) into its own pseudo project. The prefix is now stripped before matching.

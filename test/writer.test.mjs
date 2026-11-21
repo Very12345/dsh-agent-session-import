@@ -67,9 +67,11 @@ test('resume-safe plan flattens content into text without wire events', () => {
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('\n');
-  assert.match(text, /【思考】need the file first/);
+  // Reasoning is quoted so a heading-like line inside a summary stays literal.
+  assert.match(text, /【思考】/);
+  assert.match(text, /> need the file first/);
   assert.match(text, /\[工具调用\] read_file/);
-  assert.match(text, /\[工具结果\] file body/);
+  assert.ok(text.includes('[工具结果]\n\n```\nfile body\n```'));
 });
 
 test('tool call ids are sanitized consistently', () => {
